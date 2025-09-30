@@ -1,10 +1,7 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
+#include "matrix_utils.cpp"
 #include <chrono>
 #include <cmath>
 #include <sys/wait.h>
-#include <unistd.h>
 
 using namespace std;
 
@@ -18,25 +15,10 @@ struct Task
     vector<vector<double>> *M2;
 };
 
-
-vector<vector<double>> readMatrix(const string &fileName, int &rows, int &cols){
-    ifstream fin(fileName);
-    fin >> rows >> cols;
-    vector<vector<double>> matrix(rows, vector<double>(cols));
-    for (int i = 0; i < rows; i++)
-    {
-        for (int j = 0; j < cols; j++)
-        {
-            fin >> matrix[i][j];
-        }
-    }
-    fin.close();
-    return matrix;
-}
-
-double computeAndSave(const Task &task){
+double computeAndSave(const Task &task)
+{
     auto start = chrono::high_resolution_clock::now();
-    
+
     vector<vector<double>> R(task.n1, vector<double>(task.m2, 0.0));
     for (int idx = task.start; idx < task.end; idx++)
     {
@@ -62,7 +44,8 @@ double computeAndSave(const Task &task){
         int i = idx / task.m2;
         int j = idx % task.m2;
         fout << R[i][j] << " ";
-        if(j == task.m2 - 1) fout << "\n";
+        if (j == task.m2 - 1)
+            fout << "\n";
     }
     fout << elapsed.count() << "\n";
     fout.close();
@@ -72,7 +55,8 @@ double computeAndSave(const Task &task){
 
 int main(int argc, char const *argv[])
 {
-    if(argc != 4){
+    if (argc != 4)
+    {
         cerr << "Usage: " << argv[0] << " matrix1.txt matrix2.txt P\n";
     }
     string file1 = argv[1];
@@ -85,7 +69,8 @@ int main(int argc, char const *argv[])
 
     vector<vector<double>> M2 = readMatrix(file2, m1_check, m2);
 
-    if(m1 != m1_check){
+    if (m1 != m1_check)
+    {
         cerr << "Error: incompatible dimensions\n";
         return 1;
     }
@@ -99,7 +84,8 @@ int main(int argc, char const *argv[])
     for (int t = 0; t < numTasks; t++)
     {
         int fds[2];
-        if(pipe(fds) == -1){
+        if (pipe(fds) == -1)
+        {
             cerr << "Error: couldn't create pipe\n";
             return 1;
         }
@@ -115,24 +101,29 @@ int main(int argc, char const *argv[])
         task.m2 = m2;
         task.M1 = &M1;
         task.M2 = &M2;
-        
+
         pid_t pid = fork();
 
-        if(pid == 0){
+        if (pid == 0)
+        {
             close(pipes[t * 2]);
             double delta = computeAndSave(task);
             write(pipes[t * 2 + 1], &delta, sizeof(double));
             close(pipes[t * 2 + 1]);
             _exit(0);
-        }else if(pid > 0){
+        }
+        else if (pid > 0)
+        {
             children.push_back(pid);
             close(pipes[t * 2 + 1]);
-        } else {
+        }
+        else
+        {
             cerr << "Fork error\n";
             return 1;
         }
     }
-    
+
     double maxTime = 0.0;
     for (int p = 0; p < numTasks; p++)
     {
@@ -142,10 +133,11 @@ int main(int argc, char const *argv[])
         close(pipes[p * 2]);
     }
 
-    for(pid_t pid : children){
+    for (pid_t pid : children)
+    {
         waitpid(pid, nullptr, 0);
     }
-    
+
     cout << maxTime << "\n";
     return 0;
 }
