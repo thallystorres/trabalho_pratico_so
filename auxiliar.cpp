@@ -1,4 +1,4 @@
-#include "matrix_utils.cpp"
+#include "matrix_utils.hpp"
 
 using namespace std;
 
@@ -24,7 +24,7 @@ int main(int argc, char const *argv[])
         return 1;
     }
     srand(0);
-    createMatrixFile(n1, m1, "matrix1.txt");
-    createMatrixFile(n2, m2, "matrix2.txt");
+    createMatrixFile(n1, m1, "created/matrix1.txt");
+    createMatrixFile(n2, m2, "created/matrix2.txt");
     return 0;
 }

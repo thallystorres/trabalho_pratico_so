@@ -1,53 +1,25 @@
-#include <matrix_utils.cpp>
+#include "matrix_utils.hpp"
 #include <chrono>
 #include <cmath>
 #include <thread>
+#include <iomanip>
 
 using namespace std;
 
-struct ThreadData
+struct threadData
 {
-    int id;
-    int start;
-    int end;
-    int n1, m1, m2;
+    int id, start, end, n1, m1, m2;
     vector<vector<double>> *M1;
     vector<vector<double>> *M2;
-    vector<vector<double>> *R;
 };
 
-void worker(ThreadData data)
+void threadWorker(threadData data)
 {
-    auto start = chrono::high_resolution_clock::now();
-    for (int idx = data.start; idx < data.end; idx++)
-    {
-        int i = idx / data.m2;
-        int j = idx % data.m2;
-        double sum = 0;
-        for (int k = 0; k < data.m1; k++)
-        {
-            sum += (*(data.M1))[i][k] * (*(data.M2))[k][j];
-        }
-        (*(data.R))[i][j] = sum;
-    }
-    auto end = chrono::high_resolution_clock::now();
-
-    chrono::duration<double> elapsed = end - start;
-
-    string fname = "result_" + to_string(data.id) + ".txt";
-    ofstream fout(fname);
-
-    fout << data.n1 << " " << data.m2 << "\n";
-    for (int idx = data.start; idx < data.end; idx++)
-    {
-        int i = idx / data.m2;
-        int j = idx % data.m2;
-        fout << (*(data.R))[i][j] << " ";
-        if (j == data.m2 - 1)
-            fout << "\n";
-    }
-    fout << elapsed.count() << "\n";
-    fout.close();
+    auto start_time = chrono::high_resolution_clock::now();
+    auto segment = computeSegment(data.start, data.end, data.n1, data.m1, data.m2, *data.M1, *data.M2);
+    auto end_time = chrono::high_resolution_clock::now();
+    chrono::duration<double> elapsed = end_time - start_time;
+    saveSegment("threads/result_thread_" + to_string(data.id) + ".txt", data.n1, data.m2, segment, elapsed.count());
 }
 
 int main(int argc, char const *argv[])
@@ -58,47 +30,30 @@ int main(int argc, char const *argv[])
         return 1;
     }
 
-    string file1 = argv[1];
-    string file2 = argv[2];
-    int P = stoi(argv[3]);
+    int n1, m1, n2, m2;
+    vector<vector<double>> M1 = readMatrix(argv[1], n1, m1);
+    vector<vector<double>> M2 = readMatrix(argv[2], n2, m2);
 
-    int n1, m1, m2, m1_check;
-
-    vector<vector<double>> M1 = readMatrix(file1, n1, m1);
-
-    vector<vector<double>> M2 = readMatrix(file2, m1_check, m2);
-
-    if (m1_check != m1)
+    if (m1 != n2)
     {
-        cerr << "Error: incompatible dimensions\n";
+        cerr << "Incompatible matrix sizes.\n";
         return 1;
     }
 
-    vector<vector<double>> R(n1, vector<double>(m2, 0.0));
-    int total = n1 * m2;
-    int numThreads = (int)ceil((double)total / P);
-
+    int P = stoi(argv[3]);
+    int total_elements = n1 * m2;
+    int num_threads = ceil((double)total_elements / P);
     vector<thread> threads;
-    vector<ThreadData> td(numThreads);
 
-    for (int t = 0; t < numThreads; t++)
+    for (int t = 0; t < num_threads; ++t)
     {
-        td[t].id = t;
-        td[t].start = t * P;
-        td[t].end = min((t + 1) * P, total);
-        td[t].n1 = n1;
-        td[t].m1 = m1;
-        td[t].m2 = m2;
-        td[t].M1 = &M1;
-        td[t].M2 = &M2;
-        td[t].R = &R;
-        threads.emplace_back(worker, td[t]);
+        int start_index = t * P;
+        int end_index = min(start_index + P, total_elements);
+        threads.emplace_back(threadWorker, threadData{t, start_index, end_index, n1, m1, m2, &M1, &M2});
     }
 
     for (auto &th : threads)
     {
         th.join();
     }
-
-    return 0;
 }

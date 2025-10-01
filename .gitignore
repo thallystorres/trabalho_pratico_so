@@ -1,6 +1,10 @@
 # Para o projeto
 .vscode
-*.txt
+processes
+threads
+created
+sequential
+executables
 # Prerequisites
 *.d
 
